@@ -1,0 +1,527 @@
+-- SKYHUB SHOWCASE | UI ONLY | PT-BR + EN
+-- Original Darkhold 3D interface; all gameplay code omitted.
+local Players=game:GetService('Players')
+local UIS=game:GetService('UserInputService')
+local LP=Players.LocalPlayer
+local PG=LP:WaitForChild('PlayerGui')
+local old=PG:FindFirstChild('MacielHubDarkholdV1');if old then old:Destroy() end
+local connections,pageConnections={},{}
+local function disconnect(list) for _,c in ipairs(list) do pcall(function() c:Disconnect() end) end table.clear(list) end
+local function track(signal,fn,list) local c=signal:Connect(fn);table.insert(list or connections,c);return c end
+local C={bg=Color3.fromRGB(20,13,20),panel=Color3.fromRGB(35,25,35),gold=Color3.fromRGB(255,210,140),white=Color3.fromRGB(245,235,220)}
+local Settings={Transparency=0,AutoLoad=false}
+local S={}
+local running=true
+_G.SkyHubTranslate=function(s)return tostring(s) end
+local INVITE='https://discord.gg/TTnyepPuzN'
+local function copyInvite()
+ local cb=setclipboard or toclipboard
+ if type(cb)=='function' then local ok=pcall(cb,INVITE);return ok end
+ return false
+end
+local notice
+local function locked()
+ if notice then notice.Text='🔒 Versão completa no Discord! / Full version on Discord!';notice.Visible=true end
+end
+function make(class,props,parent)
+ local obj=Instance.new(class)
+ for k,v in pairs(props or {}) do obj[k]=v end
+ obj.Parent=parent;return obj
+end
+function corner(obj,r) make('UICorner',{CornerRadius=UDim.new(0,r or 7)},obj) end
+function label(parent,value,size,color,bold)
+ return make('TextLabel',{BackgroundTransparency=1,Text=_G.SkyHubTranslate(value),TextSize=size or 12,TextColor3=bold and Color3.fromRGB(255,220,143) or Color3.fromRGB(245,237,217),
+  Font=bold and Enum.Font.Fantasy or Enum.Font.Garamond,TextXAlignment=Enum.TextXAlignment.Left,TextWrapped=true,TextTruncate=Enum.TextTruncate.AtEnd,TextStrokeColor3=Color3.fromRGB(8,5,9),TextStrokeTransparency=.18},parent)
+end
+gui=make('ScreenGui',{Name='MacielHubDarkholdV1',ResetOnSpawn=false,IgnoreGuiInset=false,DisplayOrder=100},PG)
+local TweenService=game:GetService('TweenService')
+local root=make('Frame',{BackgroundColor3=C.bg,BackgroundTransparency=Settings.Transparency,BorderSizePixel=0,Active=true},gui)
+root.BackgroundTransparency=1;root.ClipsDescendants=true
+local runeBackdrop=make('ViewportFrame',{Name='Darkhold3D',BackgroundTransparency=1,Size=UDim2.fromScale(1,1),ZIndex=1,Ambient=Color3.fromRGB(130,35,43),LightColor=Color3.fromRGB(255,105,95),LightDirection=Vector3.new(-1,-1,-1)},root)
+local bookWorld=Instance.new('WorldModel');bookWorld.Parent=runeBackdrop
+local bookCamera=Instance.new('Camera');bookCamera.FieldOfView=39;bookCamera.CFrame=CFrame.lookAt(Vector3.new(0,0,8.3),Vector3.zero);bookCamera.Parent=runeBackdrop;runeBackdrop.CurrentCamera=bookCamera
+function bookPart(name,size,cf,color,material)
+ local part=Instance.new('Part');part.Name=name;part.Anchored=true;part.CanCollide=false;part.Size=size;part.CFrame=cf;part.Color=color;part.Material=material or Enum.Material.SmoothPlastic;part.Parent=bookWorld;return part
+end
+local leather=Color3.fromRGB(13,10,15);local parchment=Color3.fromRGB(29,24,30);local gold=Color3.fromRGB(142,103,64)
+local backCover=bookPart('Capa traseira',Vector3.new(8.15,5.55,.26),CFrame.new(0,0,-.38),leather)
+local leftPage=bookPart('Pagina esquerda',Vector3.new(3.75,4.85,.13),CFrame.new(-1.91,0,.02),parchment)
+local rightPage=bookPart('Pagina direita',Vector3.new(3.75,4.85,.13),CFrame.new(1.91,0,.02),parchment)
+-- Camadas de folhas envelhecidas, couro e ferragens em relevo
+for n=1,5 do
+ local z=-.31+n*.047
+ bookPart('Miolo de pergaminho '..n,Vector3.new(7.62,5.02,.045),CFrame.new(0,0,z),Color3.fromRGB(30+n*3,26+n*2,30+n*2))
+end
+for _,x in ipairs({-3.98,3.98}) do
+ bookPart('Couro lateral',Vector3.new(.24,5.42,.35),CFrame.new(x,0,-.18),leather)
+end
+for _,y in ipairs({-2.65,2.65}) do
+ bookPart('Couro horizontal',Vector3.new(8.1,.18,.35),CFrame.new(0,y,-.18),leather)
+end
+function embossCircle(cx,cy,r,segments,thickness)
+ for k=1,segments do
+  local a=(k-.5)*2*math.pi/segments
+  bookPart('Sigilo gravado',Vector3.new(thickness,2*math.pi*r/segments+.012,.038),CFrame.new(cx+math.cos(a)*r,cy+math.sin(a)*r,.145)*CFrame.Angles(0,0,a+math.pi/2),gold,Enum.Material.Metal)
+ end
+end
+-- left page kept clear for readable chapter labels
+-- no circles behind the text
+for k=1,0 do
+ local a=k*math.pi*2/5-math.pi/2
+ local b=a+4*math.pi/5
+ bookPart('Pentagrama',Vector3.new(.028,2*1.05*math.sin(2*math.pi/5),.045),CFrame.new(-1.91+(math.cos(a)+math.cos(b))*.525,(math.sin(a)+math.sin(b))*.525,.17)*CFrame.Angles(0,0,math.atan2(math.sin(b)-math.sin(a),math.cos(b)-math.cos(a))-math.pi/2),gold,Enum.Material.Metal)
+end
+local spine=bookPart('Lombada',Vector3.new(.22,5.2,.45),CFrame.new(0,0,-.12),gold,Enum.Material.Metal)
+for _,x in ipairs({-3.7,3.7}) do
+ bookPart('Borda dourada',Vector3.new(.1,4.8,.11),CFrame.new(x,0,.11),gold,Enum.Material.Metal)
+end
+-- Encadernacao esculpida: cantos, costuras e ornamentacao metalica
+for _,x in ipairs({-3.88,3.88}) do
+ for _,y in ipairs({-2.48,2.48}) do
+  bookPart('Cantoneira de bronze',Vector3.new(.42,.13,.15),CFrame.new(x-(x>0 and .17 or -.17),y,.15),gold,Enum.Material.Metal)
+  bookPart('Cantoneira vertical',Vector3.new(.12,.43,.15),CFrame.new(x,y-(y>0 and .16 or -.16),.15),gold,Enum.Material.Metal)
+ end
+end
+for _,x in ipairs({-3.42,3.42}) do
+ for j=1,12 do
+  local y=-2.16+(j-1)*.39
+  bookPart('Gravura da margem',Vector3.new(.035,.17,.04),CFrame.new(x,y,.115)*CFrame.Angles(0,0,math.rad(j%2==0 and 35 or -35)),gold,Enum.Material.Metal)
+ end
+end
+for _,x in ipairs({-1.91,1.91}) do
+ for _,y in ipairs({-2.15,2.15}) do
+  bookPart('Faixa ritual',Vector3.new(2.9,.035,.04),CFrame.new(x,y,.115),gold,Enum.Material.Metal)
+ end
+end
+for i=1,7 do
+ local y=-2.2+(i-1)*.73
+ bookPart('Costura lombada',Vector3.new(.29,.07,.09),CFrame.new(0,y,.23),gold,Enum.Material.Metal)
+end
+local glyphs={}
+for i=1,9 do
+ local a=i*math.pi*2/9
+ local g=bookPart('Runa '..i,Vector3.new(.055,.20,.05),CFrame.new(math.cos(a)*.11-3.84,math.sin(a)*2.15,.16)*CFrame.Angles(0,0,-a),Color3.fromRGB(255,57,71),Enum.Material.Neon)
+ glyphs[#glyphs+1]=g
+end
+-- Folha articulada pela lombada, com rotacao progressiva real
+local turningPage=bookPart('Folha articulada',Vector3.new(3.73,4.78,.035),CFrame.new(1.865,0,.32),Color3.fromRGB(49,40,46))
+turningPage.Transparency=1
+local pageAngle=Instance.new('NumberValue');pageAngle.Value=0
+local hinge=CFrame.new(.02,0,.34)
+function updatePageAngle()
+ turningPage.CFrame=hinge*CFrame.Angles(0,math.rad(pageAngle.Value),0)*CFrame.new(1.865,0,0)
+end
+pageAngle:GetPropertyChangedSignal('Value'):Connect(updatePageAngle)
+local bookBusy=false
+function animateBookPage(index)
+ if bookBusy then return end
+ bookBusy=true
+ local moods={Color3.fromRGB(255,60,70),Color3.fromRGB(222,85,240),Color3.fromRGB(255,40,40),Color3.fromRGB(70,185,245),Color3.fromRGB(245,175,65),Color3.fromRGB(75,230,135),Color3.fromRGB(245,195,70),Color3.fromRGB(115,155,255),Color3.fromRGB(200,110,255),Color3.fromRGB(245,210,165),Color3.fromRGB(255,95,120)}
+ for _,g in ipairs(glyphs) do g.Color=moods[index] or moods[1] end
+ pageAngle.Value=0;turningPage.Transparency=0
+ local t=TweenService:Create(pageAngle,TweenInfo.new(.48,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut),{Value=-176})
+ t:Play()
+ t.Completed:Once(function()
+  turningPage.Transparency=1;pageAngle.Value=0;bookBusy=false
+ end)
+end
+-- O livro fechado tem sua propria renderizacao 3D e permanece visivel ao minimizar.
+local icon=make('TextButton',{Text='',BackgroundTransparency=1,BorderSizePixel=0,
+ Size=UDim2.fromOffset(48,54),Position=UDim2.fromOffset(12,90),Visible=false,Active=true},gui)
+local closedView=make('ViewportFrame',{BackgroundTransparency=1,Size=UDim2.fromScale(1,1),ZIndex=1,
+ Active=false,Ambient=Color3.fromRGB(165,70,68),LightColor=Color3.fromRGB(255,168,118),LightDirection=Vector3.new(-1,-1,-1)},icon)
+local closedWorld=Instance.new('WorldModel');closedWorld.Parent=closedView
+local closedCam=Instance.new('Camera');closedCam.FieldOfView=36
+closedCam.CFrame=CFrame.lookAt(Vector3.new(1.2,1.15,16.5),Vector3.zero)
+closedCam.Parent=closedView;closedView.CurrentCamera=closedCam
+function closedPart(name,size,cf,color,material)
+ local q=Instance.new('Part');q.Name=name;q.Size=size;q.CFrame=cf;q.Anchored=true;q.CanCollide=false
+ q.Color=color;q.Material=material or Enum.Material.SmoothPlastic;q.Parent=closedWorld;return q
+end
+closedPart('Paginas fechadas',Vector3.new(5.5,7.0,.60),CFrame.new(0,0,-.22),Color3.fromRGB(183,140,92))
+closedPart('Capa de couro',Vector3.new(5.9,7.35,.28),CFrame.new(0,0,.24),Color3.fromRGB(38,8,14))
+for _,x in ipairs({-2.67,2.67}) do
+ closedPart('Filete bronze',Vector3.new(.075,6.7,.055),CFrame.new(x,0,.405),Color3.fromRGB(157,96,46),Enum.Material.Metal)
+end
+for _,y in ipairs({-3.36,3.36}) do
+ closedPart('Filete horizontal',Vector3.new(5.4,.075,.055),CFrame.new(0,y,.405),Color3.fromRGB(157,96,46),Enum.Material.Metal)
+end
+for j=1,24 do
+ local a=j*2*math.pi/24
+ closedPart('Selo circular',Vector3.new(.10,.34,.07),CFrame.new(math.cos(a)*1.53,math.sin(a)*1.53,.44)*CFrame.Angles(0,0,a),Color3.fromRGB(178,99,55),Enum.Material.Metal)
+end
+for j=1,5 do
+ local a=(j-1)*2*math.pi/5-math.pi/2
+ local b=a+4*math.pi/5
+ local x1,y1=math.cos(a)*1.25,math.sin(a)*1.25
+ local x2,y2=math.cos(b)*1.25,math.sin(b)*1.25
+ local dx,dy=x2-x1,y2-y1
+ closedPart('Sigilo estrela',Vector3.new(.09,math.sqrt(dx*dx+dy*dy),.065),CFrame.new((x1+x2)/2,(y1+y2)/2,.46)*CFrame.Angles(0,0,-math.atan2(dx,dy)),Color3.fromRGB(192,111,61),Enum.Material.Metal)
+end
+closedPart('Gema central',Vector3.new(.48,.48,.17),CFrame.new(0,0,.53),Color3.fromRGB(184,15,35),Enum.Material.Neon)
+function bounds(x,y,w,h)
+ local s=gui.AbsoluteSize
+ return math.clamp(x,8,math.max(8,s.X-w-8)),math.clamp(y,8,math.max(8,s.Y-h-8))
+end
+function resize()
+ local s=gui.AbsoluteSize;local w=math.max(1,math.min(600,s.X-24));local h=math.max(1,math.min(395,s.Y-24))
+ root.Size=UDim2.fromOffset(w,h);return w,h
+end
+function center()
+ local w,h=resize();local s=gui.AbsoluteSize
+ local x,y=bounds((s.X-w)/2,(s.Y-h)/2,w,h);root.Position=UDim2.fromOffset(x,y)
+end
+center()
+runeBackdrop.ZIndex=1
+local header=make('Frame',{BackgroundTransparency=1,Position=UDim2.new(.16,0,.105,0),Size=UDim2.new(.68,0,0,32),Active=true,ZIndex=15},root)
+local logo=label(header,'✦',22,Color3.fromRGB(240,192,132),true);logo.Position=UDim2.fromOffset(12,4);logo.Size=UDim2.fromOffset(35,40)
+local title=label(header,'SKYHUB • SHOWCASE',14,Color3.fromRGB(252,222,159),true);title.Position=UDim2.fromOffset(34,-5);title.Size=UDim2.new(1,-112,0,19)
+local subtitle=label(header,'D A R K H O L D',10,Color3.fromRGB(221,174,103));subtitle.Position=UDim2.fromOffset(35,13);subtitle.Size=UDim2.new(1,-112,0,16)
+function headerButton(value,offset)
+ local b=make('TextButton',{Text=value,TextSize=20,TextColor3=Color3.fromRGB(255,226,170),BackgroundColor3=Color3.fromRGB(63,19,24),BackgroundTransparency=.08,
+  AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,offset,0,5),Size=UDim2.fromOffset(28,28),ZIndex=20,Active=true},header)
+ corner(b,7);return b
+end
+local minimize=headerButton('−',-42);local close=headerButton('×',-9)
+minimize.ZIndex=30;close.ZIndex=30
+local body=make('Frame',{BackgroundTransparency=1,Position=UDim2.new(.16,0,.265,0),Size=UDim2.new(.68,0,.55,0),ZIndex=4},root)
+local sidebar=make('ScrollingFrame',{BackgroundTransparency=1,BorderSizePixel=0,ZIndex=8,Size=UDim2.new(.43,0,1,0),
+ ScrollBarThickness=2,ClipsDescendants=true,CanvasSize=UDim2.new()},body)
+local sideLayout=make('UIListLayout',{Padding=UDim.new(0,5)},sidebar)
+local content=make('ScrollingFrame',{BackgroundTransparency=1,BorderSizePixel=0,ZIndex=8,Position=UDim2.new(.55,0,0,0),
+ Size=UDim2.new(.43,0,1,0),ScrollBarThickness=3,ClipsDescendants=true,CanvasSize=UDim2.new()},body)
+local contentLayout=make('UIListLayout',{Padding=UDim.new(0,8)},content)
+track(sideLayout:GetPropertyChangedSignal('AbsoluteContentSize'),function()
+ sidebar.CanvasSize=UDim2.fromOffset(0,sideLayout.AbsoluteContentSize.Y+8)
+end)
+track(contentLayout:GetPropertyChangedSignal('AbsoluteContentSize'),function()
+ content.CanvasSize=UDim2.fromOffset(0,contentLayout.AbsoluteContentSize.Y+12)
+end)
+function panel(name)
+ local p=make('Frame',{BackgroundColor3=Color3.fromRGB(29,24,30),BackgroundTransparency=1,BorderSizePixel=0,
+  Size=UDim2.new(1,-5,0,0),AutomaticSize=Enum.AutomaticSize.Y},content)
+ -- Pagina sem caixa: texto diretamente sobre o pergaminho
+ make('UIPadding',{PaddingTop=UDim.new(0,8),PaddingBottom=UDim.new(0,8),PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8)},p)
+ make('UIListLayout',{Padding=UDim.new(0,6)},p)
+ local t=label(p,'✧ '.._G.SkyHubTranslate(name)..' ✧',14,Color3.fromRGB(255,209,149),true);t.Size=UDim2.new(1,0,0,22)
+ return p
+end
+function info(p,value,color)
+ local t=label(p,value,12,color or Color3.fromRGB(240,215,183));t.Size=UDim2.new(1,0,0,0);t.AutomaticSize=Enum.AutomaticSize.Y;return t
+end
+function toggle(p,name,ref,key,callback)
+ local row=make('Frame',{BackgroundColor3=Color3.fromRGB(38,31,39),BackgroundTransparency=1,ZIndex=9,Size=UDim2.new(1,0,0,38)},p);corner(row,6)
+ local caption=label(row,'✦ '.._G.SkyHubTranslate(name),12,Color3.fromRGB(246,217,175))
+ caption.Position=UDim2.fromOffset(8,0);caption.Size=UDim2.new(1,-65,1,0)
+ local b=make('TextButton',{Text='',Active=true,AutoButtonColor=false,ZIndex=12,AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-7,.5,0),Size=UDim2.fromOffset(44,26)},row);corner(b,13)
+ local dot=make('Frame',{BackgroundColor3=C.white,Size=UDim2.fromOffset(17,17),Active=false},b);corner(dot,9)
+ local function refresh()
+  if not b.Parent then return end
+  b.BackgroundColor3=ref[key] and Color3.fromRGB(196,150,69) or Color3.fromRGB(65,65,75)
+  dot.Position=UDim2.fromOffset(ref[key] and 24 or 3,4)
+ end
+ local busy=false
+ track(b.Activated,function()
+  if busy then return end
+  busy=true
+  local previous=not not ref[key]
+  ref[key]=not previous
+  refresh() -- visualiza antes de qualquer reconstrução da aba
+  if callback then
+   local ok,err=pcall(callback,ref[key])
+   if not ok then
+    ref[key]=previous
+    warn('[SKYHUB TOGGLE '..tostring(key)..'] '..tostring(err))
+    refresh()
+   end
+  end
+  busy=false
+ end,pageConnections)
+ refresh();return row
+end
+
+function action(p,name,fn)
+ local b=make('TextButton',{ZIndex=10,Text='  '.._G.SkyHubTranslate(name)..'   ›',TextColor3=Color3.fromRGB(250,239,207),TextSize=14,Font=Enum.Font.Garamond,
+  TextXAlignment=Enum.TextXAlignment.Left,BackgroundColor3=Color3.fromRGB(38,31,39),BackgroundTransparency=1,
+  Size=UDim2.new(1,0,0,34)},p);corner(b,6)
+ track(b.MouseButton1Click,fn,pageConnections);return b
+end
+function slider(p,name,min,max,value,format,callback)
+ -- Controle mobile: captura um unico toque e nunca recalcula ao soltar.
+ local row=make('Frame',{BackgroundTransparency=1,Size=UDim2.new(1,0,0,78)},p)
+ local caption=label(row,'',12)
+ caption.Position=UDim2.fromOffset(8,2)
+ -- Valor separado e alinhado a direita: nunca fica cortado pelo nome longo.
+ caption.Size=UDim2.new(1,-88,0,21)
+ caption.TextTruncate=Enum.TextTruncate.AtEnd
+ local valueLabel=label(row,'',13,Color3.fromRGB(255,222,142),true)
+ valueLabel.Position=UDim2.new(1,-81,0,2)
+ valueLabel.Size=UDim2.fromOffset(73,21)
+ valueLabel.TextXAlignment=Enum.TextXAlignment.Right
+ valueLabel.ZIndex=14
+ local minus=make('TextButton',{Text='−',TextSize=14,TextColor3=C.white,
+  BackgroundColor3=Color3.fromRGB(65,60,82),Position=UDim2.fromOffset(7,48),
+  Size=UDim2.fromOffset(23,26),ZIndex=12},row);corner(minus,7)
+ local plus=make('TextButton',{Text='+',TextSize=14,TextColor3=C.white,
+  BackgroundColor3=Color3.fromRGB(65,60,82),AnchorPoint=Vector2.new(1,0),
+  Position=UDim2.new(1,-7,0,48),Size=UDim2.fromOffset(23,26),ZIndex=12},row);corner(plus,7)
+ local hit=make('TextButton',{Text='',AutoButtonColor=false,BackgroundTransparency=1,
+  Active=true,ZIndex=12,Position=UDim2.fromOffset(36,42),
+  Size=UDim2.new(1,-72,0,40)},row)
+ local bar=make('Frame',{BackgroundColor3=Color3.fromRGB(65,60,82),
+  BorderSizePixel=0,Position=UDim2.new(0,0,.5,-4),Size=UDim2.new(1,0,0,8)},hit);corner(bar,5)
+ local fill=make('Frame',{BackgroundColor3=C.gold,BorderSizePixel=0,Size=UDim2.fromScale(0,1)},bar);corner(fill,5)
+ local knob=make('Frame',{BackgroundColor3=C.white,AnchorPoint=Vector2.new(.5,.5),
+  Size=UDim2.fromOffset(18,18),ZIndex=13},bar);corner(knob,10)
+ local decimals=tonumber(format:match('%%%.(%d+)f')) or 0
+ local scale=10^decimals
+ local step=1/scale
+ local current=tonumber(value) or min
+ local activeInput=nil
+ local draggingMouse=false
+ local function set(v)
+  current=math.floor(math.clamp(v,min,max)*scale+0.5)/scale
+  current=math.clamp(current,min,max)
+  local ratio=math.clamp((current-min)/(max-min),0,1)
+  fill.Size=UDim2.fromScale(ratio,1)
+  knob.Position=UDim2.fromScale(ratio,.5)
+  caption.Text=_G.SkyHubTranslate(name)
+  valueLabel.Text=string.format(format,current)
+  callback(current)
+ end
+ local function update(x)
+  if hit.AbsoluteSize.X<=0 then return end
+  set(min+(max-min)*math.clamp((x-hit.AbsolutePosition.X)/hit.AbsoluteSize.X,0,1))
+ end
+ track(hit.InputBegan,function(input)
+  if input.UserInputType==Enum.UserInputType.Touch then
+   if not activeInput then activeInput=input;update(input.Position.X) end
+  elseif input.UserInputType==Enum.UserInputType.MouseButton1 then
+   draggingMouse=true;update(input.Position.X)
+  end
+ end,pageConnections)
+ track(UIS.InputChanged,function(input)
+  if not row.Parent then return end
+  if activeInput and input==activeInput then
+   update(input.Position.X)
+  elseif draggingMouse and input.UserInputType==Enum.UserInputType.MouseMovement then
+   update(input.Position.X)
+  end
+ end,pageConnections)
+ track(UIS.InputEnded,function(input)
+  if input==activeInput then activeInput=nil end
+  if input.UserInputType==Enum.UserInputType.MouseButton1 then draggingMouse=false end
+ end,pageConnections)
+ track(minus.Activated,function() set(current-step) end,pageConnections)
+ track(plus.Activated,function() set(current+step) end,pageConnections)
+ set(current)
+end
+local tabs={'Inicio','ESP','Combate','Movimento','Jogador','Farms','Teleporte','Servidores','Config.','Anti Lag','Info','Creditos'}
+local buttons={};local aimStatus,shieldStatus
+function clearPage()
+ disconnect(pageConnections);
+ for _,obj in ipairs(content:GetChildren()) do if obj:IsA('GuiObject') then obj:Destroy() end end
+end
+-- Ilustracoes inspiradas no interior do Darkhold: somente gravuras, sem nomes.
+-- Construidas com elementos GUI leves, evitando centenas de pecas 3D.
+local chapterDrawings={
+ -- tracos normalizados em coordenadas de 0 a 100
+ {{50,8,50,90},{25,28,75,28},{25,72,75,72},{30,28,50,8},{70,28,50,8},{30,72,50,90},{70,72,50,90}},
+ -- olho ritual para ESP
+ {{12,50,30,32},{30,32,50,24},{50,24,70,32},{70,32,88,50},{88,50,70,68},{70,68,50,76},{50,76,30,68},{30,68,12,50}},
+ -- combate: lâminas cruzadas
+ {{20,15,80,85},{80,15,20,85},{17,30,32,15},{68,15,83,30},{18,70,30,82},{70,82,82,70}},
+ -- movimento: espirais / vento
+ {{15,30,70,30},{70,30,85,40},{85,40,70,50},{20,60,70,60},{70,60,82,70},{82,70,65,82}},
+ -- jogador: figura esquematica
+ {{50,25,50,68},{50,39,24,57},{50,39,76,57},{50,68,32,88},{50,68,68,88}},
+ -- farms: círculo de colheita
+ {{50,18,72,32},{72,32,82,54},{82,54,68,80},{68,80,32,80},{32,80,18,54},{18,54,28,32},{28,32,50,18},{50,30,50,73}},
+ -- teleportes: portal
+ {{50,12,77,30},{77,30,85,58},{85,58,50,90},{50,90,15,58},{15,58,23,30},{23,30,50,12},{50,27,65,50},{65,50,50,73},{50,73,35,50},{35,50,50,27}},
+ -- servidores: rede de nós
+ {{18,24,50,15},{50,15,82,24},{18,24,28,76},{82,24,72,76},{28,76,72,76},{18,24,72,76},{82,24,28,76}},
+ -- configurações: engrenagem geométrica
+ {{50,15,66,26},{66,26,82,45},{82,45,73,68},{73,68,50,85},{50,85,27,68},{27,68,18,45},{18,45,34,26},{34,26,50,15}},
+ -- sobre: manuscrito
+ {{30,15,70,15},{70,15,70,85},{70,85,30,85},{30,85,30,15},{39,34,61,34},{39,49,61,49},{39,64,61,64}},
+ -- créditos: selo simples
+ {{50,12,72,36},{72,36,86,50},{86,50,72,64},{72,64,50,88},{50,88,28,64},{28,64,14,50},{14,50,28,36},{28,36,50,12}}
+}
+function chapterArt(index)
+ local art=make('Frame',{Name='DarkholdEngraving',BackgroundTransparency=1,
+  Size=UDim2.new(1,-18,0,86),LayoutOrder=-100,ZIndex=9,ClipsDescendants=true},content)
+ local drawing=chapterDrawings[index] or chapterDrawings[1]
+ local ink=Color3.fromRGB(193,151,109)
+ local function stroke(x1,y1,x2,y2)
+  local dx,dy=x2-x1,y2-y1
+  local len=math.sqrt(dx*dx+dy*dy)
+  local line=make('Frame',{Name='InkStroke',BorderSizePixel=0,BackgroundColor3=ink,
+   BackgroundTransparency=.12,AnchorPoint=Vector2.new(.5,.5),ZIndex=10,
+   Position=UDim2.new((x1+x2)/200,0,(y1+y2)/200,0),
+   Size=UDim2.new(len/100,0,0,2),Rotation=math.deg(math.atan2(dy,dx))},art)
+  return line
+ end
+ for _,p in ipairs(drawing) do stroke(p[1],p[2],p[3],p[4]) end
+ -- centro decorativo do olho / dos selos, sem palavras inventadas
+ if index==2 or index==9 then
+  local ring=make('Frame',{Name='RitualSeal',BackgroundTransparency=1,
+   AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),
+   Size=UDim2.fromOffset(27,27),ZIndex=10},art)
+  make('UICorner',{CornerRadius=UDim.new(1,0)},ring)
+  make('UIStroke',{Color=ink,Thickness=2},ring)
+  if index==2 then
+   local pupil=make('Frame',{BackgroundColor3=ink,BorderSizePixel=0,
+    AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),
+    Size=UDim2.fromOffset(9,9),ZIndex=11},ring)
+   make('UICorner',{CornerRadius=UDim.new(1,0)},pupil)
+  end
+ end
+end
+local labels={
+ {'INÍCIO / HOME',{'SKYHUB SHOWCASE | DARKHOLD','Demonstração da interface / Interface demonstration','Todas as funções de jogo foram removidas / All gameplay features have been removed'}},
+ {'ESP',{'Artifact ESP','Player ESP','Shield Detector','Power Stone','Space Stone','Time Stone','Darkhold'}},
+ {'COMBATE / COMBAT',{'Aimbot','Silent Aim','Prediction Time','Aim Strength','Target Distance'}},
+ {'MOVIMENTO / MOVEMENT',{'Fly','Walk Speed','Jump Power','Noclip'}},
+ {'JOGADOR / PLAYER',{'Recover Health','Anti Ragdoll','Anti Ability Lock'}},
+ {'FARMS',{'Auto Farm','Auto Stone Pickup','Farm Settings'}},
+ {'TELEPORTE / TELEPORT',{'Teleport','Random Spawn','Teleport to Player'}},
+ {'SERVIDORES / SERVERS',{'Rejoin','Server Hop','Smallest Server'}},
+ {'CONFIGURAÇÕES / SETTINGS',{'Transparency','Auto Load','Save Settings','Load Settings'}},
+ {'ANTI LAG',{'Anti Lag','Low Graphics','Massinha Graphics','Remove Effects'}},
+ {'INFO',{'SkyHub Showcase','Complete script / Script completo'}},
+ {'CRÉDITOS / CREDITS',{'Created by adryanrz','SkyHub | Marvel Omega'}}
+}
+local demo={}
+local function demoToggle(p,name)
+ local k=tostring(name);demo[k]=false
+ toggle(p,name, demo,k,function() locked() end)
+end
+local function demoAction(p,name)
+ action(p,name,function() locked() end)
+end
+render=function(index)
+ animateBookPage(index)
+ clearPage()
+ chapterArt(index)
+ for i,b in ipairs(buttons) do
+  b.BackgroundTransparency=1
+  b.TextColor3=i==index and Color3.fromRGB(255,222,142) or Color3.fromRGB(245,237,217)
+ end
+ local data=labels[index] or labels[1]
+ local p=panel(data[1])
+ if index==1 then
+  for _,v in ipairs(data[2]) do info(p,v) end
+  demoAction(p,'EXPERIMENTAR / TRY FEATURES')
+ elseif index==11 or index==12 then
+  for _,v in ipairs(data[2]) do info(p,v) end
+  info(p,INVITE)
+  action(p,'COPIAR DISCORD / COPY DISCORD LINK',function()
+   if copyInvite() then notice.Text='Link copiado! / Link copied!' else notice.Text='Copie manualmente / Copy manually: '..INVITE end
+   notice.Visible=true
+  end)
+ else
+  for i,v in ipairs(data[2]) do
+   if i%3==0 then
+    slider(p,v,0,100,50,'%.0f',function() locked() end)
+   elseif i%2==0 then demoToggle(p,v)
+   else demoAction(p,v) end
+  end
+  info(p,'🔒 Apenas demonstração / Demo only. Complete version on Discord.')
+ end
+ content.CanvasPosition=Vector2.zero
+end
+for i,name in ipairs(tabs) do
+ local b=make('TextButton',{Text=name,TextSize=14,Font=Enum.Font.Garamond,TextColor3=Color3.fromRGB(250,239,207),ZIndex=10,
+ BackgroundColor3=C.panel,BackgroundTransparency=1,Size=UDim2.new(1,-12,0,32),TextWrapped=true,TextScaled=false,TextTruncate=Enum.TextTruncate.AtEnd,LayoutOrder=i},sidebar)
+ buttons[i]=b;track(b.MouseButton1Click,function() render(i) end)
+end
+local discordTop=make('TextButton',{Name='DiscordTop',Text='DISCORD ↗',Font=Enum.Font.GothamBold,TextSize=11,
+ TextColor3=Color3.fromRGB(255,255,255),BackgroundColor3=Color3.fromRGB(83,91,220),
+ Size=UDim2.fromOffset(94,26),Position=UDim2.new(.5,-47,0,-29),ZIndex=30},body)
+corner(discordTop,7)
+track(discordTop.Activated,function()
+ if copyInvite() then notice.Text='Discord copiado! / Discord copied!' else notice.Text=INVITE end
+ notice.Visible=true
+end)
+notice=make('TextLabel',{Name='DiscordNotice',Text='🔒 Versão completa no Discord / Full version on Discord',
+ Font=Enum.Font.Gotham,TextSize=10,TextWrapped=true,TextColor3=Color3.fromRGB(255,235,190),
+ BackgroundColor3=Color3.fromRGB(53,23,39),BackgroundTransparency=.08,
+ Position=UDim2.new(.18,0,.84,0),Size=UDim2.new(.64,0,0,28),ZIndex=40},root)
+corner(notice,6)
+-- Darkhold: fechar, encolher e viajar ate o canto; retorno em ordem inversa.
+-- A transicao usa o proprio modelo 3D da capa fechada, nao um retangulo.
+local animationBusy=false
+local iconHome=UDim2.fromOffset(12,90)
+local iconSmall=UDim2.fromOffset(48,54)
+local bookScale=Instance.new('UIScale');bookScale.Scale=1;bookScale.Parent=root
+function tweenWait(object,duration,properties,style,direction)
+ local tw=TweenService:Create(object,TweenInfo.new(duration,style or Enum.EasingStyle.Quint,direction or Enum.EasingDirection.InOut),properties)
+ tw:Play();tw.Completed:Wait()
+end
+function minimizeDarkhold()
+ if animationBusy or not root.Visible then return end
+ animationBusy=true
+ local rp,rs=root.AbsolutePosition,root.AbsoluteSize
+ -- Fechamento: o grimorio aberto diminui antes de revelar a capa fechada.
+ tweenWait(bookScale,.16,{Scale=.84},Enum.EasingStyle.Quad,Enum.EasingDirection.In)
+ root.Visible=false;bookScale.Scale=1
+ icon.Position=UDim2.fromOffset(rp.X+rs.X*.38,rp.Y+rs.Y*.22)
+ icon.Size=UDim2.fromOffset(math.max(48,rs.X*.24),math.max(54,rs.Y*.65))
+ icon.Visible=true
+ tweenWait(icon,.5,{Position=iconHome,Size=iconSmall},Enum.EasingStyle.Quint,Enum.EasingDirection.Out)
+ animationBusy=false
+end
+function restore()
+ if animationBusy or root.Visible then return end
+ animationBusy=true
+ local rp,rs=root.Position,root.Size
+ -- A capa cresce no canto, viaja ao centro e so entao o livro abre.
+ tweenWait(icon,.42,{Position=UDim2.fromOffset(rp.X.Offset+rs.X.Offset*.38,rp.Y.Offset+rs.Y.Offset*.22),Size=UDim2.fromOffset(math.max(48,rs.X.Offset*.24),math.max(54,rs.Y.Offset*.65))},Enum.EasingStyle.Quint,Enum.EasingDirection.InOut)
+ icon.Visible=false
+ icon.Size=iconSmall;icon.Position=iconHome
+ bookScale.Scale=.78;root.Visible=true
+ tweenWait(bookScale,.42,{Scale=1},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
+ animationBusy=false
+end
+track(minimize.Activated,minimizeDarkhold)
+function draggable(target,handle,onTap)
+ local dragging,moved=false,false;local touch,start,initial
+ track(handle.InputBegan,function(input)
+  if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+   dragging=true;moved=false;touch=input.UserInputType==Enum.UserInputType.Touch and input or nil
+   start=input.Position;initial=target.Position
+  end
+ end)
+ track(UIS.InputChanged,function(input)
+  if not dragging then return end
+  if input.UserInputType~=Enum.UserInputType.MouseMovement and input~=touch then return end
+  local delta=input.Position-start;if delta.Magnitude>6 then moved=true end
+  local size=target.AbsoluteSize
+  local x,y=bounds(initial.X.Offset+delta.X,initial.Y.Offset+delta.Y,size.X,size.Y)
+  target.Position=UDim2.fromOffset(x,y)
+ end)
+ track(UIS.InputEnded,function(input)
+  if dragging and (input.UserInputType==Enum.UserInputType.MouseButton1 or input==touch) then
+   dragging=false;touch=nil;if onTap and not moved then onTap() end
+  end
+ end)
+end
+-- Arraste apenas pelo titulo, nunca pelos botoes de fechar/minimizar.
+draggable(root,title);draggable(icon,icon)
+track(icon.Activated,restore)
+function updateSize()
+ local w,h=resize()
+ sidebar.Size=UDim2.new(.43,0,1,0)
+ content.Position=UDim2.new(.55,0,0,0);content.Size=UDim2.new(.43,0,1,0)
+ local x,y=bounds(root.Position.X.Offset,root.Position.Y.Offset,w,h)
+ root.Position=UDim2.fromOffset(x,y)
+end
+track(gui:GetPropertyChangedSignal('AbsoluteSize'),updateSize)
+updateSize()
+
+track(close.Activated,function()
+ running=false;disconnect(pageConnections);disconnect(connections)
+ if gui then gui:Destroy() end
+end)
+render(1)
