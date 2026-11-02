@@ -1,0 +1,266 @@
+
+-- SKYHUB SILENT AIM v1.0
+-- Modulo independente | Raycast Redirect
+-- Executar apenas uma vez por sessao
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+local ENV = getgenv and getgenv() or _G
+
+if ENV.SkySilent and ENV.SkySilent.Stop then
+    ENV.SkySilent.Stop()
+end
+
+local Config = {
+    Enabled = false,
+    FOV = 150,
+    TargetPart = "Head",
+    TeamCheck = true,
+    WallCheck = true,
+    ShowFOV = true
+}
+
+local Connections = {}
+local CurrentTarget = nil
+local OriginalNamecall
+local HookInstalled = false
+
+local function GetPart(character)
+    if not character then return nil end
+
+    local part = character:FindFirstChild(Config.TargetPart)
+    return part or character:FindFirstChild("HumanoidRootPart")
+end
+
+local function IsVisible(part, character)
+    if not Config.WallCheck then return true end
+
+    local origin = Camera.CFrame.Position
+    local direction = part.Position - origin
+
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = {
+        LocalPlayer.Character,
+        Camera
+    }
+
+    local result = workspace:Raycast(origin, direction, params)
+
+    return not result or result.Instance:IsDescendantOf(character)
+end
+
+local function GetTarget()
+    local bestTarget = nil
+    local bestDistance = Config.FOV
+    local center = Camera.ViewportSize / 2
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local character = player.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            local part = GetPart(character)
+
+            local sameTeam =
+                Config.TeamCheck
+                and LocalPlayer.Team ~= nil
+                and player.Team == LocalPlayer.Team
+
+            if humanoid and humanoid.Health > 0 and part and not sameTeam then
+                local screen, visible = Camera:WorldToViewportPoint(part.Position)
+
+                if visible then
+                    local distance = (
+                        Vector2.new(screen.X, screen.Y) - center
+                    ).Magnitude
+
+                    if distance < bestDistance and IsVisible(part, character) then
+                        bestDistance = distance
+                        bestTarget = part
+                    end
+                end
+            end
+        end
+    end
+
+    return bestTarget
+end
+
+-- Interface independente
+local gui = Instance.new("ScreenGui")
+gui.Name = "SkyHubSilentAimV1"
+gui.ResetOnSpawn = false
+
+pcall(function()
+    gui.Parent = game:GetService("CoreGui")
+end)
+
+if not gui.Parent then
+    gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.fromOffset(260, 205)
+frame.Position = UDim2.new(0.5, -130, 0.35, 0)
+frame.BackgroundColor3 = Color3.fromRGB(23, 20, 35)
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+
+local function Button(text, y, callback)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, -20, 0, 35)
+    button.Position = UDim2.fromOffset(10, y)
+    button.BackgroundColor3 = Color3.fromRGB(65, 40, 105)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.Font = Enum.Font.GothamBold
+    button.TextSize = 13
+    button.Text = text
+    button.Parent = frame
+
+    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
+
+    button.MouseButton1Click:Connect(function()
+        callback(button)
+    end)
+
+    return button
+end
+
+local title = Button("SKYHUB | SILENT AIM v1.0", 8, function()
+end)
+
+local toggle = Button("SILENT AIM: OFF", 51, function(button)
+    Config.Enabled = not Config.Enabled
+    button.Text = "SILENT AIM: " .. (Config.Enabled and "ON" or "OFF")
+end)
+
+Button("FOV: 150", 94, function(button)
+    Config.FOV += 50
+    if Config.FOV > 350 then Config.FOV = 50 end
+    button.Text = "FOV: " .. Config.FOV
+end)
+
+Button("ALVO: HEAD", 137, function(button)
+    Config.TargetPart =
+        Config.TargetPart == "Head" and "HumanoidRootPart" or "Head"
+
+    button.Text = "ALVO: " .. Config.TargetPart:upper()
+end)
+
+local minimized = false
+Button("MINIMIZAR / ABRIR", 180, function()
+    minimized = not minimized
+    frame.Size = UDim2.fromOffset(260, minimized and 43 or 225)
+
+    for _, child in ipairs(frame:GetChildren()) do
+        if child:IsA("TextButton") and child ~= title then
+            child.Visible = not minimized
+        end
+    end
+
+    if minimized then
+        title.Text = "SKYHUB | TOQUE PARA ABRIR"
+    else
+        title.Text = "SKYHUB | SILENT AIM v1.0"
+    end
+end)
+
+title.MouseButton1Click:Connect(function()
+    if minimized then
+        minimized = false
+        frame.Size = UDim2.fromOffset(260, 225)
+
+        for _, child in ipairs(frame:GetChildren()) do
+            if child:IsA("TextButton") then
+                child.Visible = true
+            end
+        end
+        title.Text = "SKYHUB | SILENT AIM v1.0"
+    end
+end)
+
+-- Circulo FOV
+local circle
+
+if Drawing then
+    circle = Drawing.new("Circle")
+    circle.Filled = false
+    circle.Thickness = 1.5
+    circle.Color = Color3.fromRGB(180, 90, 255)
+    circle.NumSides = 64
+end
+
+table.insert(Connections, RunService.RenderStepped:Connect(function()
+    Camera = workspace.CurrentCamera
+
+    if not Camera then return end
+
+    CurrentTarget = Config.Enabled and GetTarget() or nil
+
+    if circle then
+        circle.Visible = Config.Enabled and Config.ShowFOV
+        circle.Radius = Config.FOV
+        circle.Position = Camera.ViewportSize / 2
+    end
+end))
+
+-- Redirecionamento de raycast
+if hookmetamethod and getnamecallmethod and newcclosure then
+    OriginalNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+
+        if Config.Enabled
+            and CurrentTarget
+            and not checkcaller()
+            and self == workspace
+            and method == "Raycast"
+            and typeof(args[1]) == "Vector3"
+            and typeof(args[2]) == "Vector3"
+        then
+            local origin = args[1]
+            local originalLength = args[2].Magnitude
+
+            if originalLength > 0 then
+                local targetDirection = CurrentTarget.Position - origin
+
+                if targetDirection.Magnitude > 0 then
+                    args[2] = targetDirection.Unit * originalLength
+                    return OriginalNamecall(self, table.unpack(args))
+                end
+            end
+        end
+
+        return OriginalNamecall(self, ...)
+    end))
+
+    HookInstalled = true
+end
+
+ENV.SkySilent = {
+    Config = Config,
+
+    Stop = function()
+        Config.Enabled = false
+
+        for _, connection in ipairs(Connections) do
+            connection:Disconnect()
+        end
+
+        if circle then
+            circle:Remove()
+        end
+
+        gui:Destroy()
+    end
+}
+
+print("[SKYHUB] Silent Aim v1.0 carregado")
+print("[SKYHUB] Raycast hook:", HookInstalled)
